@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>USD 本行即期賣出</title>
+    <title>美金即期賣出</title>
 
     <style>
         * {
@@ -19,7 +19,7 @@
 
         body {
             background: #111827;
-            color: #fff;
+            color: white;
             font-family:
                 -apple-system,
                 BlinkMacSystemFont,
@@ -29,38 +29,64 @@
                 sans-serif;
 
             display: flex;
-            align-items: center;
             justify-content: center;
+            align-items: center;
         }
 
         .container {
             width: 100%;
             text-align: center;
+            padding: 30px;
         }
 
-        .currency {
-            font-size: clamp(24px, 4vw, 40px);
+        .title {
+            font-size: clamp(20px, 4vw, 36px);
             color: #9ca3af;
             margin-bottom: 20px;
         }
 
         .rate {
-            font-size: clamp(90px, 22vw, 240px);
+            font-size: clamp(80px, 20vw, 220px);
             font-weight: 700;
             line-height: 1;
             letter-spacing: -5px;
+            color: #ffffff;
+
+            transition:
+                color 0.3s ease,
+                transform 0.3s ease;
         }
 
-        .label {
-            margin-top: 25px;
-            font-size: clamp(18px, 3vw, 30px);
+        .rate.up {
+            color: #ef4444;
+            transform: scale(1.03);
+        }
+
+        .rate.down {
+            color: #22c55e;
+            transform: scale(1.03);
+        }
+
+        .unit {
+            margin-top: 20px;
+            font-size: clamp(18px, 3vw, 28px);
             color: #9ca3af;
         }
 
-        .updated {
-            margin-top: 30px;
+        .status {
+            margin-top: 35px;
             font-size: 14px;
             color: #6b7280;
+        }
+
+        .status.error {
+            color: #ef4444;
+        }
+
+        .refresh {
+            margin-top: 8px;
+            font-size: 13px;
+            color: #4b5563;
         }
     </style>
 </head>
@@ -69,7 +95,7 @@
 
 <div class="container">
 
-    <div class="currency">
+    <div class="title">
         美金 (USD)
     </div>
 
@@ -77,77 +103,221 @@
         --
     </div>
 
-    <div class="label">
+    <div class="unit">
         本行即期賣出
     </div>
 
-    <div id="updated" class="updated">
+    <div id="status" class="status">
         載入中...
+    </div>
+
+    <div id="refresh" class="refresh">
+        每 10 秒自動更新
     </div>
 
 </div>
 
 <script>
+    // ==============================
+    // 資料來源
+    // ==============================
 
-const RATE_URL = "./rate.txt";
+    const API_URL =
+        "https://corsproxy.io/?key=webdemo1&url=https%3A%2F%2Frate.bot.com.tw%2Fxrt%3FLang%3Dzh-TW";
 
-async function loadRate() {
+    // 更新間隔：10 秒
+    const REFRESH_INTERVAL = 10000;
 
-    try {
+    // ==============================
+    // DOM
+    // ==============================
 
-        // 加時間參數避免瀏覽器快取
-        const url =
-            RATE_URL + "?t=" + Date.now();
+    const rateElement = document.getElementById("rate");
+    const statusElement = document.getElementById("status");
 
-        const response =
-            await fetch(url, {
+    let previousRate = null;
+
+
+    // ==============================
+    // 取得匯率
+    // ==============================
+
+    async function fetchRate() {
+
+        try {
+
+            statusElement.textContent = "更新中...";
+            statusElement.classList.remove("error");
+
+            const response = await fetch(API_URL, {
                 cache: "no-store"
             });
 
-        if (!response.ok) {
-            throw new Error("HTTP " + response.status);
-        }
+            if (!response.ok) {
+                throw new Error(
+                    `HTTP ${response.status}`
+                );
+            }
 
-        const text =
-            await response.text();
+            const html = await response.text();
 
-        const rate =
-            parseFloat(text.trim());
+            // 將取得的 HTML 轉成 DOM
+            const parser = new DOMParser();
 
-        if (!Number.isFinite(rate)) {
-            throw new Error("匯率格式錯誤");
-        }
+            const doc = parser.parseFromString(
+                html,
+                "text/html"
+            );
 
-        document.getElementById("rate")
-            .textContent = rate.toFixed(3);
 
-        const now = new Date();
+            // ==============================
+            // 找到「美金 (USD)」那一列
+            // ==============================
 
-        document.getElementById("updated")
-            .textContent =
+            const rows = doc.querySelectorAll("tr");
+
+            let usdRow = null;
+
+            for (const row of rows) {
+
+                const text = row.textContent
+                    .replace(/\s+/g, " ")
+                    .trim();
+
+                if (
+                    text.includes("美金") &&
+                    text.includes("(USD)")
+                ) {
+                    usdRow = row;
+                    break;
+                }
+            }
+
+            if (!usdRow) {
+                throw new Error(
+                    "找不到美金 (USD) 資料"
+                );
+            }
+
+
+            // ==============================
+            // 找「本行即期賣出」
+            // ==============================
+
+            const sellElement =
+                usdRow.querySelector(
+                    'td[data-table="本行即期賣出"]'
+                );
+
+            if (!sellElement) {
+                throw new Error(
+                    "找不到本行即期賣出欄位"
+                );
+            }
+
+
+            // 例如：
+            // 31.855
+
+            const rateText =
+                sellElement.textContent.trim();
+
+            const rate =
+                parseFloat(
+                    rateText.replace(/,/g, "")
+                );
+
+            if (!Number.isFinite(rate)) {
+                throw new Error(
+                    "取得的匯率不是有效數字"
+                );
+            }
+
+
+            // ==============================
+            // 更新畫面
+            // ==============================
+
+            updateRate(rate);
+
+            const now = new Date();
+
+            statusElement.textContent =
                 "最後更新：" +
                 now.toLocaleTimeString("zh-TW");
 
-    } catch (error) {
+        } catch (error) {
 
-        console.error(error);
+            console.error(
+                "取得匯率失敗：",
+                error
+            );
 
-        document.getElementById("rate")
-            .textContent = "--";
+            statusElement.textContent =
+                "取得匯率失敗，稍後重試";
 
-        document.getElementById("updated")
-            .textContent = "無法取得匯率";
-
+            statusElement.classList.add("error");
+        }
     }
-}
 
 
-// 第一次載入
-loadRate();
+    // ==============================
+    // 更新數字
+    // ==============================
+
+    function updateRate(rate) {
+
+        const oldRate = previousRate;
+
+        rateElement.textContent =
+            rate.toFixed(3);
+
+        if (oldRate !== null) {
+
+            if (rate > oldRate) {
+
+                rateElement.classList.add("up");
+                rateElement.classList.remove("down");
+
+            } else if (rate < oldRate) {
+
+                rateElement.classList.add("down");
+                rateElement.classList.remove("up");
+
+            } else {
+
+                rateElement.classList.remove("up");
+                rateElement.classList.remove("down");
+            }
+
+            // 0.5 秒後恢復白色
+            setTimeout(() => {
+
+                rateElement.classList.remove("up");
+                rateElement.classList.remove("down");
+
+            }, 500);
+        }
+
+        previousRate = rate;
+    }
 
 
-// 每 10 秒更新畫面
-setInterval(loadRate, 10000);
+    // ==============================
+    // 第一次立即取得
+    // ==============================
+
+    fetchRate();
+
+
+    // ==============================
+    // 每 10 秒自動更新
+    // ==============================
+
+    setInterval(
+        fetchRate,
+        REFRESH_INTERVAL
+    );
 
 </script>
 
