@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USD 本行即期賣出</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            background: #111827;
+            color: #fff;
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                "Noto Sans TC",
+                "Microsoft JhengHei",
+                sans-serif;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            text-align: center;
+        }
+
+        .currency {
+            font-size: clamp(24px, 4vw, 40px);
+            color: #9ca3af;
+            margin-bottom: 20px;
+        }
+
+        .rate {
+            font-size: clamp(90px, 22vw, 240px);
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: -5px;
+        }
+
+        .label {
+            margin-top: 25px;
+            font-size: clamp(18px, 3vw, 30px);
+            color: #9ca3af;
+        }
+
+        .updated {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="currency">
+        美金 (USD)
+    </div>
+
+    <div id="rate" class="rate">
+        --
+    </div>
+
+    <div class="label">
+        本行即期賣出
+    </div>
+
+    <div id="updated" class="updated">
+        載入中...
+    </div>
+
+</div>
+
+<script>
+
+const RATE_URL = "./rate.txt";
+
+async function loadRate() {
+
+    try {
+
+        // 加時間參數避免瀏覽器快取
+        const url =
+            RATE_URL + "?t=" + Date.now();
+
+        const response =
+            await fetch(url, {
+                cache: "no-store"
+            });
+
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+
+        const text =
+            await response.text();
+
+        const rate =
+            parseFloat(text.trim());
+
+        if (!Number.isFinite(rate)) {
+            throw new Error("匯率格式錯誤");
+        }
+
+        document.getElementById("rate")
+            .textContent = rate.toFixed(3);
+
+        const now = new Date();
+
+        document.getElementById("updated")
+            .textContent =
+                "最後更新：" +
+                now.toLocaleTimeString("zh-TW");
+
+    } catch (error) {
+
+        console.error(error);
+
+        document.getElementById("rate")
+            .textContent = "--";
+
+        document.getElementById("updated")
+            .textContent = "無法取得匯率";
+
+    }
+}
+
+
+// 第一次載入
+loadRate();
+
+
+// 每 10 秒更新畫面
+setInterval(loadRate, 10000);
+
+</script>
+
+</body>
+</html>
