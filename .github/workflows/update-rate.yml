@@ -1,107 +1,173 @@
 name: Update USD Exchange Rate
 
 on:
-  schedule:
-    # 每 5 分鐘執行一次
-    - cron: "*/5 * * * *"
-
-  # 允許手動執行
   workflow_dispatch:
+
+  schedule:
+    - cron: "*/5 * * * *"
 
 permissions:
   contents: write
 
 jobs:
-
   update-rate:
 
     runs-on: ubuntu-latest
 
     steps:
 
-      # 取得 Repository
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 抓取臺灣銀行匯率
-      - name: Get USD rate
+      - name: Get USD exchange rate
         run: |
 
           python3 <<'PY'
 
           import urllib.request
           import re
+          import html
           import sys
 
           url = "https://rate.bot.com.tw/xrt?Lang=zh-TW"
 
+          print("開始取得臺灣銀行匯率...")
+
+          request = urllib.request.Request(
+              url,
+              headers={
+                  "User-Agent": "Mozilla/5.0"
+              }
+          )
+
           try:
-
-              request = urllib.request.Request(
-                  url,
-                  headers={
-                      "User-Agent":
-                      "Mozilla/5.0"
-                  }
-              )
-
               response = urllib.request.urlopen(
                   request,
                   timeout=30
               )
 
-              html = response.read().decode(
-                  "utf-8",
-                  errors="ignore"
-              )
+              data = response.read()
+
+              print("HTTP:", response.status)
+              print("資料大小:", len(data))
 
           except Exception as e:
 
-              print("無法取得臺灣銀行資料")
+              print("取得資料失敗:")
               print(e)
 
               sys.exit(1)
 
 
-          # 找到美金 USD 那一列
-          row_match = re.search(
-              r"<tr[\s\S]*?美金\s*\(USD\)[\s\S]*?</tr>",
-              html,
+          # 嘗試不同編碼
+          try:
+              page = data.decode("utf-8")
+          except:
+              page = data.decode("big5", errors="ignore")
+
+
+          # HTML entity 解碼
+          page = html.unescape(page)
+
+
+          # ==============================
+          # 找 USD 那一列
+          # ==============================
+
+          rows = re.findall(
+              r"<tr\b[^>]*>[\s\S]*?</tr>",
+              page,
               re.IGNORECASE
           )
 
-          if not row_match:
+          print("找到 TR 數量:", len(rows))
 
-              print("找不到美金 USD")
+
+          usd_row = None
+
+          for row in rows:
+
+              clean = re.sub(
+                  r"<[^>]+>",
+                  " ",
+                  row
+              )
+
+              clean = re.sub(
+                  r"\s+",
+                  " ",
+                  clean
+              ).strip()
+
+              if "美金" in clean and "USD" in clean:
+
+                  usd_row = row
+
+                  print("找到 USD 資料列")
+
+                  break
+
+
+          if usd_row is None:
+
+              print("找不到 美金 USD")
+
+              # 輸出部分資料方便除錯
+              print(page[:3000])
 
               sys.exit(1)
 
 
-          row = row_match.group(0)
+          # ==============================
+          # 找本行即期賣出
+          # ==============================
+
+          pattern = (
+              r'<td[^>]*'
+              r'data-table=["\']本行即期賣出["\']'
+              r'[^>]*>'
+              r'\s*([\d,.]+)'
+              r'\s*</td>'
+          )
 
 
-          # 找「本行即期賣出」
-          rate_match = re.search(
-              r'data-table=["\']本行即期賣出["\'][^>]*>\s*([\d.]+)\s*</td>',
-              row,
+          match = re.search(
+              pattern,
+              usd_row,
               re.IGNORECASE
           )
 
 
-          if not rate_match:
+          if match is None:
 
-              print("找不到本行即期賣出")
+              print("找不到 本行即期賣出")
+
+              print(usd_row)
 
               sys.exit(1)
 
 
-          rate = rate_match.group(1)
+          rate = match.group(1)
+
+          rate = rate.replace(",", "")
+
+          print("USD 本行即期賣出 =", rate)
 
 
-          print("USD 本行即期賣出：", rate)
+          # 確認是數字
+          try:
+              float(rate)
+          except:
+
+              print("匯率不是有效數字:", rate)
+
+              sys.exit(1)
 
 
+          # ==============================
           # 寫入 rate.txt
+          # ==============================
+
           with open(
               "rate.txt",
               "w",
@@ -110,21 +176,30 @@ jobs:
 
               f.write(rate + "\n")
 
+
+          print("rate.txt 更新完成")
+
+
           PY
 
 
-      # Commit 更新後的 rate.txt
-      - name: Commit rate
+      - name: Commit and push
         run: |
 
           git config user.name "github-actions[bot]"
 
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add rate.txt
 
-          git diff --cached --quiet || \
+          if git diff --cached --quiet; then
+
+            echo "匯率沒有變化，不需要 commit"
+
+          else
+
             git commit -m "Update USD exchange rate"
 
-          git push
+            git push
+
+          fi
