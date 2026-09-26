@@ -112,7 +112,7 @@
     </div>
 
     <div id="refresh" class="refresh">
-        每 10 秒自動更新
+        每 1 分鐘自動更新
     </div>
 
 </div>
@@ -125,17 +125,122 @@
     const API_URL =
         "https://corsproxy.io/?key=webdemo1&url=https%3A%2F%2Frate.bot.com.tw%2Fxrt%3FLang%3Dzh-TW";
 
-    // 更新間隔：10 秒
-    const REFRESH_INTERVAL = 10000;
+
+    // ==============================
+    // 自動更新間隔
+    // ==============================
+
+    const REFRESH_INTERVAL = 60000;
+
 
     // ==============================
     // DOM
     // ==============================
 
-    const rateElement = document.getElementById("rate");
-    const statusElement = document.getElementById("status");
+    const rateElement =
+        document.getElementById("rate");
+
+    const statusElement =
+        document.getElementById("status");
+
+
+    // ==============================
+    // 上一次匯率
+    // ==============================
 
     let previousRate = null;
+
+
+    // ==============================
+    // 自動更新計時器
+    // ==============================
+
+    let refreshTimer = null;
+
+
+    // ==============================
+    // 取得台灣時間
+    // ==============================
+
+    function getTaiwanTime() {
+
+        const formatter =
+            new Intl.DateTimeFormat(
+                "zh-TW",
+                {
+                    timeZone: "Asia/Taipei",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: false
+                }
+            );
+
+        const parts =
+            formatter.formatToParts(
+                new Date()
+            );
+
+        const hour =
+            Number(
+                parts.find(
+                    p => p.type === "hour"
+                ).value
+            );
+
+        const minute =
+            Number(
+                parts.find(
+                    p => p.type === "minute"
+                ).value
+            );
+
+        const second =
+            Number(
+                parts.find(
+                    p => p.type === "second"
+                ).value
+            );
+
+        return {
+            hour,
+            minute,
+            second
+        };
+    }
+
+
+    // ==============================
+    // 判斷是否為交易時間
+    //
+    // 09:00 ～ 17:00
+    // ==============================
+
+    function isTradingTime() {
+
+        const {
+            hour,
+            minute
+        } = getTaiwanTime();
+
+
+        const totalMinutes =
+            hour * 60 + minute;
+
+
+        const start =
+            9 * 60;
+
+
+        const end =
+            17 * 60;
+
+
+        return (
+            totalMinutes >= start &&
+            totalMinutes <= end
+        );
+    }
 
 
     // ==============================
@@ -146,54 +251,86 @@
 
         try {
 
-            statusElement.textContent = "更新中...";
-            statusElement.classList.remove("error");
+            statusElement.textContent =
+                "更新中...";
 
-            const response = await fetch(API_URL, {
-                cache: "no-store"
-            });
+            statusElement.classList.remove(
+                "error"
+            );
+
+
+            const response =
+                await fetch(
+                    API_URL,
+                    {
+                        cache: "no-store"
+                    }
+                );
+
 
             if (!response.ok) {
+
                 throw new Error(
                     `HTTP ${response.status}`
                 );
             }
 
-            const html = await response.text();
 
-            // 將取得的 HTML 轉成 DOM
-            const parser = new DOMParser();
+            const html =
+                await response.text();
 
-            const doc = parser.parseFromString(
-                html,
-                "text/html"
-            );
+
+            // ==============================
+            // 將 HTML 轉成 DOM
+            // ==============================
+
+            const parser =
+                new DOMParser();
+
+
+            const doc =
+                parser.parseFromString(
+                    html,
+                    "text/html"
+                );
 
 
             // ==============================
             // 找到「美金 (USD)」那一列
             // ==============================
 
-            const rows = doc.querySelectorAll("tr");
+            const rows =
+                doc.querySelectorAll("tr");
+
 
             let usdRow = null;
 
+
             for (const row of rows) {
 
-                const text = row.textContent
-                    .replace(/\s+/g, " ")
-                    .trim();
+                const text =
+                    row.textContent
+                        .replace(
+                            /\s+/g,
+                            " "
+                        )
+                        .trim();
+
 
                 if (
                     text.includes("美金") &&
                     text.includes("(USD)")
                 ) {
+
                     usdRow = row;
+
                     break;
                 }
             }
 
+
             if (!usdRow) {
+
                 throw new Error(
                     "找不到美金 (USD) 資料"
                 );
@@ -209,25 +346,36 @@
                     'td[data-table="本行即期賣出"]'
                 );
 
+
             if (!sellElement) {
+
                 throw new Error(
                     "找不到本行即期賣出欄位"
                 );
             }
 
 
-            // 例如：
-            // 31.855
+            // ==============================
+            // 取得數字
+            // ==============================
 
             const rateText =
                 sellElement.textContent.trim();
 
+
             const rate =
                 parseFloat(
-                    rateText.replace(/,/g, "")
+                    rateText.replace(
+                        /,/g,
+                        ""
+                    )
                 );
 
-            if (!Number.isFinite(rate)) {
+
+            if (
+                !Number.isFinite(rate)
+            ) {
+
                 throw new Error(
                     "取得的匯率不是有效數字"
                 );
@@ -240,11 +388,31 @@
 
             updateRate(rate);
 
-            const now = new Date();
+
+            // ==============================
+            // 顯示最後更新時間
+            // 使用台灣時間
+            // ==============================
+
+            const now =
+                new Date();
+
+
+            const timeText =
+                now.toLocaleTimeString(
+                    "zh-TW",
+                    {
+                        timeZone:
+                            "Asia/Taipei",
+                        hour12: false
+                    }
+                );
+
 
             statusElement.textContent =
                 "最後更新：" +
-                now.toLocaleTimeString("zh-TW");
+                timeText;
+
 
         } catch (error) {
 
@@ -253,70 +421,245 @@
                 error
             );
 
+
             statusElement.textContent =
                 "取得匯率失敗，稍後重試";
 
-            statusElement.classList.add("error");
+
+            statusElement.classList.add(
+                "error"
+            );
         }
     }
 
 
     // ==============================
-    // 更新數字
+    // 更新匯率數字
     // ==============================
 
     function updateRate(rate) {
 
-        const oldRate = previousRate;
+        const oldRate =
+            previousRate;
+
 
         rateElement.textContent =
             rate.toFixed(3);
 
-        if (oldRate !== null) {
 
-            if (rate > oldRate) {
+        if (
+            oldRate !== null
+        ) {
 
-                rateElement.classList.add("up");
-                rateElement.classList.remove("down");
+            if (
+                rate > oldRate
+            ) {
 
-            } else if (rate < oldRate) {
+                rateElement.classList.add(
+                    "up"
+                );
 
-                rateElement.classList.add("down");
-                rateElement.classList.remove("up");
+                rateElement.classList.remove(
+                    "down"
+                );
+
+
+            } else if (
+                rate < oldRate
+            ) {
+
+                rateElement.classList.add(
+                    "down"
+                );
+
+                rateElement.classList.remove(
+                    "up"
+                );
+
 
             } else {
 
-                rateElement.classList.remove("up");
-                rateElement.classList.remove("down");
+                rateElement.classList.remove(
+                    "up"
+                );
+
+                rateElement.classList.remove(
+                    "down"
+                );
             }
 
+
             // 0.5 秒後恢復白色
+
             setTimeout(() => {
 
-                rateElement.classList.remove("up");
-                rateElement.classList.remove("down");
+                rateElement.classList.remove(
+                    "up"
+                );
+
+                rateElement.classList.remove(
+                    "down"
+                );
 
             }, 500);
         }
 
-        previousRate = rate;
+
+        previousRate =
+            rate;
     }
 
 
     // ==============================
-    // 第一次立即取得
+    // 停止自動更新
+    // ==============================
+
+    function stopAutoRefresh() {
+
+        if (
+            refreshTimer !== null
+        ) {
+
+            clearInterval(
+                refreshTimer
+            );
+
+            refreshTimer = null;
+        }
+    }
+
+
+    // ==============================
+    // 開始自動更新
+    // ==============================
+
+    function startAutoRefresh() {
+
+        stopAutoRefresh();
+
+
+        refreshTimer =
+            setInterval(
+                () => {
+
+                    if (
+                        isTradingTime()
+                    ) {
+
+                        fetchRate();
+
+                    } else {
+
+                        stopAutoRefresh();
+
+                        updateSchedule();
+                    }
+
+                },
+                REFRESH_INTERVAL
+            );
+    }
+
+
+    // ==============================
+    // 設定自動更新
+    // ==============================
+
+    function updateSchedule() {
+
+        if (
+            isTradingTime()
+        ) {
+
+            startAutoRefresh();
+
+
+            document.getElementById(
+                "refresh"
+            ).textContent =
+                "每 1 分鐘自動更新";
+
+
+        } else {
+
+            stopAutoRefresh();
+
+
+            document.getElementById(
+                "refresh"
+            ).textContent =
+                "非交易時間｜重新整理網頁時更新一次";
+        }
+    }
+
+
+    // ==============================
+    // 第一次開啟網頁
+    //
+    // 不論時間：
+    // 都立即讀取一次
     // ==============================
 
     fetchRate();
 
 
     // ==============================
-    // 每 10 秒自動更新
+    // 設定自動更新
+    //
+    // 09:00～17:00
+    // 每 1 分鐘更新
+    //
+    // 17:01～08:59
+    // 停止自動更新
+    // ==============================
+
+    updateSchedule();
+
+
+    // ==============================
+    // 每 10 秒檢查一次
+    // 是否到了 09:00 / 17:01
+    //
+    // 這不是抓匯率
+    // 只是在檢查時間
     // ==============================
 
     setInterval(
-        fetchRate,
-        REFRESH_INTERVAL
+        () => {
+
+            const trading =
+                isTradingTime();
+
+
+            if (
+                trading &&
+                refreshTimer === null
+            ) {
+
+                // 到 09:00
+                // 立即讀取一次
+
+                fetchRate();
+
+                startAutoRefresh();
+
+
+            } else if (
+                !trading &&
+                refreshTimer !== null
+            ) {
+
+                // 到 17:01
+                // 停止自動更新
+
+                stopAutoRefresh();
+
+                updateSchedule();
+            }
+
+
+        },
+        10000
     );
 
 </script>
