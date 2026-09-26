@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
 
   schedule:
-    # 每 5 分鐘執行一次
     - cron: "*/5 * * * *"
 
 permissions:
@@ -17,17 +16,8 @@ jobs:
 
     steps:
 
-      # =========================
-      # 取得 GitHub Repository
-      # =========================
-
       - name: Checkout
         uses: actions/checkout@v4
-
-
-      # =========================
-      # 使用 corsproxy 取得臺灣銀行
-      # =========================
 
       - name: Get USD exchange rate
         run: |
@@ -35,47 +25,25 @@ jobs:
           python3 <<'PY'
 
           import urllib.request
-          import urllib.parse
           import re
           import html
           import sys
 
+          # 使用 CORS Proxy
+          url = "https://corsproxy.io/?key=webdemo1&url=https%3A%2F%2Frate.bot.com.tw%2Fxrt%3FLang%3Dzh-TW"
 
-          # 臺灣銀行網址
-          target_url = "https://rate.bot.com.tw/xrt?Lang=zh-TW"
-
-
-          # CORS Proxy
-          proxy_url = (
-              "https://corsproxy.io/"
-              "?key=webdemo1"
-              "&url=" +
-              urllib.parse.quote(
-                  target_url,
-                  safe=""
-              )
-          )
-
-
-          print("Proxy URL:")
-          print(proxy_url)
-
-
-          # =========================
-          # 發送請求
-          # =========================
+          print("開始取得臺灣銀行匯率...")
+          print("使用 Proxy:")
+          print(url)
 
           request = urllib.request.Request(
-              proxy_url,
+              url,
               headers={
-                  "User-Agent":
-                  "Mozilla/5.0"
+                  "User-Agent": "Mozilla/5.0"
               }
           )
 
-
           try:
-
               response = urllib.request.urlopen(
                   request,
                   timeout=30
@@ -83,47 +51,31 @@ jobs:
 
               data = response.read()
 
-              print(
-                  "HTTP:",
-                  response.status
-              )
-
-              print(
-                  "資料大小:",
-                  len(data)
-              )
+              print("HTTP:", response.status)
+              print("資料大小:", len(data))
 
           except Exception as e:
 
-              print("Proxy 取得資料失敗:")
-
+              print("取得資料失敗:")
               print(e)
 
               sys.exit(1)
 
 
-          # =========================
-          # 解碼 HTML
-          # =========================
-
+          # 嘗試不同編碼
           try:
-
               page = data.decode("utf-8")
-
           except:
-
-              page = data.decode(
-                  "big5",
-                  errors="ignore"
-              )
+              page = data.decode("big5", errors="ignore")
 
 
+          # HTML entity 解碼
           page = html.unescape(page)
 
 
-          # =========================
-          # 找所有 TR
-          # =========================
+          # ==============================
+          # 找 USD 那一列
+          # ==============================
 
           rows = re.findall(
               r"<tr\b[^>]*>[\s\S]*?</tr>",
@@ -131,65 +83,47 @@ jobs:
               re.IGNORECASE
           )
 
+          print("找到 TR 數量:", len(rows))
 
-          print(
-              "找到 TR 數量:",
-              len(rows)
-          )
-
-
-          # =========================
-          # 找 USD
-          # =========================
 
           usd_row = None
 
-
           for row in rows:
 
-              text = re.sub(
+              clean = re.sub(
                   r"<[^>]+>",
                   " ",
                   row
               )
 
-              text = re.sub(
+              clean = re.sub(
                   r"\s+",
                   " ",
-                  text
+                  clean
               ).strip()
 
-
-              if (
-                  "美金" in text
-                  and "USD" in text
-              ):
+              if "美金" in clean and "USD" in clean:
 
                   usd_row = row
 
-                  print(
-                      "找到美金 USD 資料列"
-                  )
+                  print("找到 USD 資料列")
 
                   break
 
 
           if usd_row is None:
 
-              print(
-                  "找不到美金 USD"
-              )
+              print("找不到 美金 USD")
 
-              print(
-                  page[:3000]
-              )
+              # 輸出部分資料方便除錯
+              print(page[:3000])
 
               sys.exit(1)
 
 
-          # =========================
-          # 找「本行即期賣出」
-          # =========================
+          # ==============================
+          # 找本行即期賣出
+          # ==============================
 
           pattern = (
               r'<td[^>]*'
@@ -209,53 +143,33 @@ jobs:
 
           if match is None:
 
-              print(
-                  "找不到本行即期賣出"
-              )
+              print("找不到 本行即期賣出")
 
-              print(
-                  usd_row
-              )
+              print(usd_row)
 
               sys.exit(1)
 
-
-          # =========================
-          # 取得匯率
-          # =========================
 
           rate = match.group(1)
 
-          rate = rate.replace(
-              ",",
-              ""
-          )
+          rate = rate.replace(",", "")
+
+          print("USD 本行即期賣出 =", rate)
 
 
-          print(
-              "USD 本行即期賣出:",
-              rate
-          )
-
-
-          # 確認數字
+          # 確認是數字
           try:
-
               float(rate)
-
           except:
 
-              print(
-                  "匯率不是有效數字:",
-                  rate
-              )
+              print("匯率不是有效數字:", rate)
 
               sys.exit(1)
 
 
-          # =========================
+          # ==============================
           # 寫入 rate.txt
-          # =========================
+          # ==============================
 
           with open(
               "rate.txt",
@@ -263,41 +177,31 @@ jobs:
               encoding="utf-8"
           ) as f:
 
-              f.write(
-                  rate + "\n"
-              )
+              f.write(rate + "\n")
 
 
-          print(
-              "rate.txt 更新完成"
-          )
+          print("rate.txt 更新完成")
+
 
           PY
 
 
-      # =========================
-      # Commit
-      # =========================
-
-      - name: Commit rate.txt
+      - name: Commit and push
         run: |
 
-          git config user.name \
-            "github-actions[bot]"
+          git config user.name "github-actions[bot]"
 
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add rate.txt
 
           if git diff --cached --quiet; then
 
-            echo "匯率沒有變化"
+            echo "匯率沒有變化，不需要 commit"
 
           else
 
-            git commit \
-              -m "Update USD exchange rate"
+            git commit -m "Update USD exchange rate"
 
             git push
 
