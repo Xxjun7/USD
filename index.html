@@ -1,1527 +1,2223 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 
-  <head>
+<head>
 
-    <meta charset="UTF-8">
+  <meta charset="UTF-8">
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
 
-    <title>美金即期賣出</title>
+  <title>美金即期賣出</title>
 
-    <style>
-      * {
-        box-sizing: border-box;
+  <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+    }
+
+    body {
+      background: #111827;
+      color: #ffffff;
+
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        "Noto Sans TC",
+        "Microsoft JhengHei",
+        sans-serif;
+
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+
+      min-height: 100vh;
+
+      padding: 30px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      text-align: center;
+    }
+
+    /* =====================================================
+       主要匯率
+       ===================================================== */
+
+    .main-panel {
+      padding: 20px 10px 30px;
+    }
+
+    .title {
+      font-size: clamp(20px, 4vw, 36px);
+      color: #9ca3af;
+      margin-bottom: 20px;
+    }
+
+    .rate {
+      font-size: clamp(80px, 20vw, 220px);
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -5px;
+      color: #ffffff;
+
+      transition:
+        color 0.3s ease,
+        transform 0.3s ease;
+    }
+
+    .rate.up {
+      color: #ef4444;
+      transform: scale(1.03);
+    }
+
+    .rate.down {
+      color: #22c55e;
+      transform: scale(1.03);
+    }
+
+    .unit {
+      margin-top: 20px;
+      font-size: clamp(18px, 3vw, 28px);
+      color: #9ca3af;
+    }
+
+    .status {
+      margin-top: 35px;
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    .status.error {
+      color: #ef4444;
+    }
+
+    .refresh {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #4b5563;
+    }
+
+    .source {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #374151;
+    }
+
+    /* =====================================================
+       歷史紀錄
+       ===================================================== */
+
+    .history-panel {
+      margin-top: 10px;
+
+      background: #1f2937;
+
+      border-radius: 16px;
+
+      overflow: hidden;
+
+      border: 1px solid #374151;
+
+      text-align: left;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      padding: 16px 18px;
+
+      border-bottom: 1px solid #374151;
+    }
+
+    .history-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+
+    .history-count {
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .history-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .history-table {
+      width: 100%;
+
+      border-collapse: collapse;
+
+      font-size: 14px;
+    }
+
+    .history-table th {
+      padding: 12px 16px;
+
+      background: #111827;
+
+      color: #9ca3af;
+
+      font-weight: 500;
+
+      white-space: nowrap;
+    }
+
+    .history-table td {
+      padding: 12px 16px;
+
+      border-top: 1px solid #374151;
+
+      color: #d1d5db;
+
+      white-space: nowrap;
+    }
+
+    .history-table th:first-child,
+    .history-table td:first-child {
+      text-align: left;
+    }
+
+    .history-table th:not(:first-child),
+    .history-table td:not(:first-child) {
+      text-align: right;
+    }
+
+    .history-up {
+      color: #ef4444 !important;
+      font-weight: 600;
+    }
+
+    .history-down {
+      color: #22c55e !important;
+      font-weight: 600;
+    }
+
+    .history-same {
+      color: #6b7280 !important;
+    }
+
+    .empty-history {
+      padding: 30px 20px;
+
+      text-align: center;
+
+      color: #6b7280;
+
+      font-size: 14px;
+    }
+
+    /* =====================================================
+       Proxy / 匯率服務錯誤警示
+       ===================================================== */
+
+    .error-overlay {
+      position: fixed;
+
+      inset: 0;
+
+      z-index: 9999;
+
+      display: none;
+
+      justify-content: center;
+      align-items: center;
+
+      padding: 20px;
+
+      background: rgba(0, 0, 0, 0.72);
+
+      backdrop-filter: blur(5px);
+    }
+
+    .error-overlay.show {
+      display: flex;
+    }
+
+    .error-modal {
+      width: 100%;
+      max-width: 460px;
+
+      background: #1f2937;
+
+      border: 1px solid #7f1d1d;
+
+      border-radius: 18px;
+
+      padding: 30px 24px;
+
+      text-align: center;
+
+      box-shadow:
+        0 25px 60px rgba(0, 0, 0, 0.5);
+
+      animation:
+        modalIn 0.2s ease-out;
+    }
+
+    @keyframes modalIn {
+
+      from {
+        opacity: 0;
+
+        transform:
+          scale(0.95)
+          translateY(10px);
       }
 
-      html,
+      to {
+        opacity: 1;
+
+        transform:
+          scale(1)
+          translateY(0);
+      }
+
+    }
+
+    .error-icon {
+      width: 58px;
+      height: 58px;
+
+      margin:
+        0 auto 18px;
+
+      border-radius: 50%;
+
+      display: flex;
+
+      align-items: center;
+      justify-content: center;
+
+      background: #450a0a;
+
+      color: #f87171;
+
+      font-size: 30px;
+
+      font-weight: 700;
+    }
+
+    .error-title {
+      font-size: 21px;
+
+      font-weight: 600;
+
+      color: #f9fafb;
+
+      margin-bottom: 12px;
+    }
+
+    .error-message {
+      font-size: 14px;
+
+      line-height: 1.7;
+
+      color: #9ca3af;
+
+      margin-bottom: 20px;
+    }
+
+    .error-details {
+      background: #111827;
+
+      border-radius: 10px;
+
+      padding: 12px;
+
+      margin-bottom: 20px;
+
+      color: #6b7280;
+
+      font-size: 12px;
+
+      line-height: 1.6;
+
+      text-align: left;
+
+      white-space: pre-line;
+
+      word-break: break-word;
+    }
+
+    .error-button {
+      width: 100%;
+
+      border: 0;
+
+      border-radius: 10px;
+
+      padding: 13px 18px;
+
+      background: #dc2626;
+
+      color: #ffffff;
+
+      font-size: 15px;
+
+      font-weight: 600;
+
+      cursor: pointer;
+
+      transition:
+        background 0.2s ease,
+        transform 0.2s ease;
+    }
+
+    .error-button:hover {
+      background: #b91c1c;
+    }
+
+    .error-button:active {
+      transform: scale(0.98);
+    }
+
+    /* =====================================================
+       手機
+       ===================================================== */
+
+    @media (max-width: 600px) {
+
       body {
-        margin: 0;
-        width: 100%;
-        min-height: 100%;
+        padding: 15px 10px;
       }
 
-      body {
-        background: #111827;
-        color: #ffffff;
-        font-family:
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          "Noto Sans TC",
-          "Microsoft JhengHei",
-          sans-serif;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-        min-height: 100vh;
-        padding: 30px 16px;
-      }
-
-      .container {
-        width: 100%;
-        max-width: 900px;
-        text-align: center;
-      }
-
-      /* =====================================================
-           主要匯率
-           ===================================================== */
       .main-panel {
-        padding:
-          20px 10px 30px;
-      }
-
-      .title {
-        font-size:
-          clamp(20px, 4vw, 36px);
-        color: #9ca3af;
-        margin-bottom: 20px;
-      }
-
-      .rate {
-        font-size:
-          clamp(80px, 20vw, 220px);
-        font-weight: 700;
-        line-height: 1;
-        letter-spacing: -5px;
-        color: #ffffff;
-        transition:
-          color 0.3s ease,
-          transform 0.3s ease;
-      }
-
-      .rate.up {
-        color: #ef4444;
-        transform:
-          scale(1.03);
-      }
-
-      .rate.down {
-        color: #22c55e;
-        transform:
-          scale(1.03);
-      }
-
-      .unit {
-        margin-top: 20px;
-        font-size:
-          clamp(18px, 3vw, 28px);
-        color: #9ca3af;
-      }
-
-      .status {
-        margin-top: 35px;
-        font-size: 14px;
-        color: #6b7280;
-      }
-
-      .status.error {
-        color: #ef4444;
-      }
-
-      .refresh {
-        margin-top: 8px;
-        font-size: 13px;
-        color: #4b5563;
-      }
-
-      .source {
-        margin-top: 18px;
-        font-size: 12px;
-        color: #374151;
-      }
-
-      /* =====================================================
-           歷史紀錄
-           ===================================================== */
-      .history-panel {
-        margin-top: 10px;
-        background: #1f2937;
-        border-radius: 16px;
-        overflow: hidden;
-        border:
-          1px solid #374151;
-        text-align: left;
-      }
-
-      .history-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding:
-          16px 18px;
-        border-bottom:
-          1px solid #374151;
-      }
-
-      .history-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #e5e7eb;
-      }
-
-      .history-count {
-        font-size: 12px;
-        color: #6b7280;
-      }
-
-      .history-table-wrapper {
-        width: 100%;
-        overflow-x: auto;
+        padding: 15px 5px 25px;
       }
 
       .history-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
+        font-size: 13px;
       }
 
-      .history-table th {
-        padding:
-          12px 16px;
-        background: #111827;
-        color: #9ca3af;
-        font-weight: 500;
-        white-space: nowrap;
-      }
-
+      .history-table th,
       .history-table td {
-        padding:
-          12px 16px;
-        border-top:
-          1px solid #374151;
-        color: #d1d5db;
-        white-space: nowrap;
-      }
-
-      .history-table th:first-child,
-      .history-table td:first-child {
-        text-align: left;
-      }
-
-      .history-table th:not(:first-child),
-      .history-table td:not(:first-child) {
-        text-align: right;
-      }
-
-      .history-up {
-        color: #ef4444 !important;
-        font-weight: 600;
-      }
-
-      .history-down {
-        color: #22c55e !important;
-        font-weight: 600;
-      }
-
-      .empty-history {
-        padding: 30px 20px;
-        text-align: center;
-        color: #6b7280;
-        font-size: 14px;
-      }
-
-      /* =====================================================
-           Proxy 錯誤警示
-           ===================================================== */
-      .error-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        display: none;
-        justify-content: center;
-        align-items: center;
-        padding: 20px;
-        background:
-          rgba(0, 0, 0, 0.72);
-        backdrop-filter:
-          blur(5px);
-      }
-
-      .error-overlay.show {
-        display: flex;
+        padding: 10px 12px;
       }
 
       .error-modal {
-        width: 100%;
-        max-width: 460px;
-        background: #1f2937;
-        border:
-          1px solid #7f1d1d;
-        border-radius: 18px;
-        padding: 30px 24px;
-        text-align: center;
-        box-shadow:
-          0 25px 60px rgba(0, 0, 0, 0.5);
-        animation:
-          modalIn 0.2s ease-out;
+        padding: 26px 20px;
       }
 
-      @keyframes modalIn {
-        from {
-          opacity: 0;
-          transform:
-            scale(0.95) translateY(10px);
-        }
+    }
 
-        to {
-          opacity: 1;
-          transform:
-            scale(1) translateY(0);
-        }
-      }
+  </style>
 
-      .error-icon {
-        width: 58px;
-        height: 58px;
-        margin:
-          0 auto 18px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #450a0a;
-        color: #f87171;
-        font-size: 30px;
-        font-weight: 700;
-      }
+</head>
 
-      .error-title {
-        font-size: 21px;
-        font-weight: 600;
-        color: #f9fafb;
-        margin-bottom: 12px;
-      }
+<body>
 
-      .error-message {
-        font-size: 14px;
-        line-height: 1.7;
-        color: #9ca3af;
-        margin-bottom: 20px;
-      }
+  <div class="container">
 
-      .error-details {
-        background: #111827;
-        border-radius: 10px;
-        padding: 12px;
-        margin-bottom: 20px;
-        color: #6b7280;
-        font-size: 12px;
-        line-height: 1.6;
-        text-align: left;
-        white-space: pre-line;
-        word-break: break-word;
-      }
-
-      .error-button {
-        width: 100%;
-        border: 0;
-        border-radius: 10px;
-        padding: 13px 18px;
-        background: #dc2626;
-        color: #ffffff;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        transition:
-          background 0.2s ease,
-          transform 0.2s ease;
-      }
-
-      .error-button:hover {
-        background: #b91c1c;
-      }
-
-      .error-button:active {
-        transform:
-          scale(0.98);
-      }
-
-      /* =====================================================
-           手機
-           ===================================================== */
-      @media (max-width: 600px) {
-        body {
-          padding:
-            15px 10px;
-        }
-
-        .main-panel {
-          padding:
-            15px 5px 25px;
-        }
-
-        .history-table {
-          font-size: 13px;
-        }
-
-        .history-table th,
-        .history-table td {
-          padding:
-            10px 12px;
-        }
-
-        .error-modal {
-          padding:
-            26px 20px;
-        }
-      }
-    </style>
-
-  </head>
-
-  <body>
-
-    <div class="container">
-
-      <!-- =====================================================
+    <!-- =====================================================
          主要匯率
          ===================================================== -->
 
-      <main class="main-panel">
+    <main class="main-panel">
 
-        <div class="title">
-          美金 (USD)
-        </div>
+      <div class="title">
+        美金 (USD)
+      </div>
 
-        <div id="rate" class="rate">
-          --
-        </div>
+      <div
+        id="rate"
+        class="rate"
+      >
+        --
+      </div>
 
-        <div class="unit">
-          本行即期賣出
-        </div>
+      <div class="unit">
+        本行即期賣出
+      </div>
 
-        <div id="status" class="status">
-          載入中...
-        </div>
+      <div
+        id="status"
+        class="status"
+      >
+        載入中...
+      </div>
 
-        <div id="refresh" class="refresh">
-          判斷更新時間中...
-        </div>
+      <div
+        id="refresh"
+        class="refresh"
+      >
+        判斷更新時間中...
+      </div>
 
-        <div class="source">
-          資料來源：臺灣銀行
-        </div>
+      <div class="source">
+        資料來源：臺灣銀行
+      </div>
 
-      </main>
+    </main>
 
-      <!-- =====================================================
+
+    <!-- =====================================================
          歷史更新訊息
          ===================================================== -->
 
-      <section class="history-panel">
+    <section class="history-panel">
 
-        <div class="history-header">
+      <div class="history-header">
 
-          <div class="history-title">
-            歷史更新訊息
-          </div>
-
-          <div id="historyCount" class="history-count">
-            0 筆
-          </div>
-
+        <div class="history-title">
+          歷史更新訊息
         </div>
 
-        <div class="history-table-wrapper">
-
-          <table class="history-table">
-
-            <thead>
-
-              <tr>
-
-                <th>
-                  時間
-                </th>
-
-                <th>
-                  匯率
-                </th>
-
-                <th>
-                  變動
-                </th>
-
-              </tr>
-
-            </thead>
-
-            <tbody id="historyBody">
-            </tbody>
-
-          </table>
-
-          <div id="emptyHistory" class="empty-history">
-            尚無匯率變動紀錄
-          </div>
-
+        <div
+          id="historyCount"
+          class="history-count"
+        >
+          0 筆
         </div>
-
-      </section>
-
-    </div>
-
-    <!-- =========================================================
-     Proxy / 匯率服務錯誤警示
-     ========================================================= -->
-
-    <div id="errorOverlay" class="error-overlay" role="alertdialog" aria-modal="true" aria-labelledby="errorTitle">
-
-      <div class="error-modal">
-
-        <div class="error-icon">
-          !
-        </div>
-
-        <div id="errorTitle" class="error-title">
-          匯率服務暫時無法使用
-        </div>
-
-        <div id="errorMessage" class="error-message">
-          目前無法取得最新匯率。
-        </div>
-
-        <div id="errorDetails" class="error-details">
-          正在等待下一次連線。
-        </div>
-
-        <button id="retryButton" class="error-button" type="button">
-          重新嘗試
-        </button>
 
       </div>
 
+
+      <div class="history-table-wrapper">
+
+        <table class="history-table">
+
+          <thead>
+
+            <tr>
+
+              <th>
+                時間
+              </th>
+
+              <th>
+                匯率
+              </th>
+
+              <th>
+                變動
+              </th>
+
+            </tr>
+
+          </thead>
+
+          <tbody
+            id="historyBody"
+          ></tbody>
+
+        </table>
+
+
+        <div
+          id="emptyHistory"
+          class="empty-history"
+        >
+          尚無匯率變動紀錄
+        </div>
+
+      </div>
+
+    </section>
+
+  </div>
+
+
+  <!-- =====================================================
+       Proxy / 匯率服務錯誤警示
+       ===================================================== -->
+
+  <div
+    id="errorOverlay"
+    class="error-overlay"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="errorTitle"
+  >
+
+    <div class="error-modal">
+
+      <div class="error-icon">
+        !
+      </div>
+
+      <div
+        id="errorTitle"
+        class="error-title"
+      >
+        匯率服務暫時無法使用
+      </div>
+
+      <div
+        id="errorMessage"
+        class="error-message"
+      >
+        目前無法取得最新匯率。
+      </div>
+
+      <div
+        id="errorDetails"
+        class="error-details"
+      >
+        正在等待下一次連線。
+      </div>
+
+      <button
+        id="retryButton"
+        class="error-button"
+        type="button"
+      >
+        重新嘗試
+      </button>
+
     </div>
 
-    <script>
-      // =========================================================
-      // 設定
-      // =========================================================
-      const CONFIG = {
-        // -------------------------------------------------------
-        // 臺灣銀行
-        // -------------------------------------------------------
-        BOT_URL: "https://rate.bot.com.tw/xrt?Lang=zh-TW",
-        // -------------------------------------------------------
-        // CorsProxy
-        //
-        // 按照你的要求：
-        // 保留原本 webdemo1
-        // -------------------------------------------------------
-        PROXY_URL: "https://corsproxy.io/?key=webdemo1&url=",
-        // -------------------------------------------------------
-        // 每 5 分鐘更新
-        // -------------------------------------------------------
-        REFRESH_INTERVAL: 5 * 60 * 1000,
-        // -------------------------------------------------------
-        // 每 10 秒檢查是否進入 / 離開更新時段
-        // -------------------------------------------------------
-        SCHEDULE_INTERVAL: 10 * 1000,
-        // -------------------------------------------------------
-        // 更新時段
-        //
-        // 星期一～星期五
-        // 09:00 <= 時間 < 17:00
-        // -------------------------------------------------------
-        UPDATE_START: 9 * 60,
-        UPDATE_END: 17 * 60,
-        // -------------------------------------------------------
-        // Fetch timeout
-        //
-        // 超過 15 秒視為失敗
-        // -------------------------------------------------------
-        FETCH_TIMEOUT: 15 * 1000,
-        // -------------------------------------------------------
-        // 最多保存 50 筆匯率變動
-        // -------------------------------------------------------
-        MAX_HISTORY: 50,
-        // -------------------------------------------------------
-        // localStorage
-        // -------------------------------------------------------
-        STORAGE_KEY: "usdRateHistory_v2",
-        LAST_RATE_KEY: "usdRateLastSuccess_v2"
-      };
-      // =========================================================
-      // DOM
-      // =========================================================
-      const rateElement =
-        document.getElementById(
-          "rate"
+  </div>
+
+
+  <script>
+
+    "use strict";
+
+
+    // =========================================================
+    // 設定
+    // =========================================================
+
+    const CONFIG = {
+
+      // 臺灣銀行匯率頁面
+      BOT_URL:
+        "https://rate.bot.com.tw/xrt?Lang=zh-TW",
+
+      // 原本的 CorsProxy
+      PROXY_URL:
+        "https://corsproxy.io/?key=webdemo1&url=",
+
+      // 每 5 分鐘更新
+      REFRESH_INTERVAL:
+        5 * 60 * 1000,
+
+      // 每 10 秒檢查更新時段
+      SCHEDULE_INTERVAL:
+        10 * 1000,
+
+      // 星期一～星期五
+      // 09:00 <= 時間 < 17:00
+      UPDATE_START:
+        9 * 60,
+
+      UPDATE_END:
+        17 * 60,
+
+      // Fetch timeout
+      FETCH_TIMEOUT:
+        15 * 1000,
+
+      // 最多保存 50 筆
+      MAX_HISTORY:
+        50,
+
+      // localStorage
+      STORAGE_KEY:
+        "usdRateHistory_v3",
+
+      LAST_RATE_KEY:
+        "usdRateLastSuccess_v3"
+
+    };
+
+
+    // =========================================================
+    // DOM
+    // =========================================================
+
+    const rateElement =
+      document.getElementById(
+        "rate"
+      );
+
+    const statusElement =
+      document.getElementById(
+        "status"
+      );
+
+    const refreshElement =
+      document.getElementById(
+        "refresh"
+      );
+
+    const historyBody =
+      document.getElementById(
+        "historyBody"
+      );
+
+    const historyCount =
+      document.getElementById(
+        "historyCount"
+      );
+
+    const emptyHistory =
+      document.getElementById(
+        "emptyHistory"
+      );
+
+    const errorOverlay =
+      document.getElementById(
+        "errorOverlay"
+      );
+
+    const errorMessage =
+      document.getElementById(
+        "errorMessage"
+      );
+
+    const errorDetails =
+      document.getElementById(
+        "errorDetails"
+      );
+
+    const retryButton =
+      document.getElementById(
+        "retryButton"
+      );
+
+
+    // =========================================================
+    // 執行狀態
+    // =========================================================
+
+    let previousRate =
+      null;
+
+    let refreshTimer =
+      null;
+
+    let scheduleTimer =
+      null;
+
+    let isFetching =
+      false;
+
+    let previousTradingState =
+      null;
+
+
+    // =========================================================
+    // 取得 Proxy URL
+    //
+    // 直接使用原本 CorsProxy
+    // =========================================================
+
+    function getApiUrl() {
+
+      return (
+        CONFIG.PROXY_URL +
+        encodeURIComponent(
+          CONFIG.BOT_URL
+        )
+      );
+
+    }
+
+
+    // =========================================================
+    // 取得台灣時間
+    // =========================================================
+
+    function getTaiwanDateParts() {
+
+      const formatter =
+        new Intl.DateTimeFormat(
+          "en-US",
+          {
+            timeZone:
+              "Asia/Taipei",
+
+            year:
+              "numeric",
+
+            month:
+              "2-digit",
+
+            day:
+              "2-digit",
+
+            weekday:
+              "short",
+
+            hour:
+              "2-digit",
+
+            minute:
+              "2-digit",
+
+            second:
+              "2-digit",
+
+            hour12:
+              false
+          }
         );
-      const statusElement =
-        document.getElementById(
-          "status"
+
+
+      const parts =
+        formatter.formatToParts(
+          new Date()
         );
-      const refreshElement =
-        document.getElementById(
-          "refresh"
-        );
-      const historyBody =
-        document.getElementById(
-          "historyBody"
-        );
-      const historyCount =
-        document.getElementById(
-          "historyCount"
-        );
-      const emptyHistory =
-        document.getElementById(
-          "emptyHistory"
-        );
-      const errorOverlay =
-        document.getElementById(
-          "errorOverlay"
-        );
-      const errorMessage =
-        document.getElementById(
-          "errorMessage"
-        );
-      const errorDetails =
-        document.getElementById(
-          "errorDetails"
-        );
-      const retryButton =
-        document.getElementById(
-          "retryButton"
-        );
-      // =========================================================
-      // 執行狀態
-      // =========================================================
-      let previousRate =
-        null;
-      let refreshTimer =
-        null;
-      let scheduleTimer =
-        null;
-      let isFetching =
-        false;
-      let previousTradingState =
-        null;
-      // =========================================================
-      // API URL
-      // =========================================================
-      function getApiUrl() {
-        return (
-          CONFIG.PROXY_URL +
-          encodeURIComponent(
-            CONFIG.BOT_URL
-          )
-        );
-      }
-      // =========================================================
-      // 取得台灣時間
-      // =========================================================
-      function getTaiwanDateParts() {
-        const formatter =
-          new Intl.DateTimeFormat(
-            "en-US", {
-              timeZone: "Asia/Taipei",
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-              weekday: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-              hour12: false
-            }
-          );
-        const parts =
-          formatter.formatToParts(
-            new Date()
+
+
+      function getPart(
+        type
+      ) {
+
+        const part =
+          parts.find(
+            item =>
+              item.type === type
           );
 
-        function getPart(
-          type
-        ) {
-          const part =
-            parts.find(
-              item =>
-              item.type ===
-              type
-            );
-          return part ?
-            part.value :
-            "";
-        }
-        return {
-          year: getPart(
+
+        return part
+          ? part.value
+          : "";
+
+      }
+
+
+      return {
+
+        year:
+          getPart(
             "year"
           ),
-          month: getPart(
+
+        month:
+          getPart(
             "month"
           ),
-          day: getPart(
+
+        day:
+          getPart(
             "day"
           ),
-          weekday: getPart(
+
+        weekday:
+          getPart(
             "weekday"
           ),
-          hour: Number(
+
+        hour:
+          Number(
             getPart(
               "hour"
             )
           ),
-          minute: Number(
+
+        minute:
+          Number(
             getPart(
               "minute"
             )
           ),
-          second: Number(
+
+        second:
+          Number(
             getPart(
               "second"
             )
           )
-        };
-      }
-      // =========================================================
-      // 台灣完整時間
-      //
-      // YYYY-MM-DD HH:mm:ss
-      // =========================================================
-      function getTaiwanDateTimeText() {
-        const {
-          year,
-          month,
-          day,
-          hour,
-          minute,
-          second
-        } =
+
+      };
+
+    }
+
+
+    // =========================================================
+    // 完整台灣時間
+    //
+    // YYYY-MM-DD HH:mm:ss
+    // =========================================================
+
+    function getTaiwanDateTimeText() {
+
+      const {
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        second
+      } =
         getTaiwanDateParts();
-        return (
-          `${year}-${month}-${day} ` +
-          `${String(hour).padStart(2, "0")}:` +
-          `${String(minute).padStart(2, "0")}:` +
-          `${String(second).padStart(2, "0")}`
-        );
-      }
-      // =========================================================
-      // 判斷星期一～星期五
-      // =========================================================
-      function isWeekday(
-        weekday
+
+
+      return (
+        `${year}-${month}-${day} ` +
+        `${String(hour).padStart(2, "0")}:` +
+        `${String(minute).padStart(2, "0")}:` +
+        `${String(second).padStart(2, "0")}`
+      );
+
+    }
+
+
+    // =========================================================
+    // 判斷星期一～星期五
+    // =========================================================
+
+    function isWeekday(
+      weekday
+    ) {
+
+      return (
+
+        weekday === "Mon" ||
+        weekday === "Tue" ||
+        weekday === "Wed" ||
+        weekday === "Thu" ||
+        weekday === "Fri"
+
+      );
+
+    }
+
+
+    // =========================================================
+    // 判斷自動更新時段
+    //
+    // 星期一～星期五
+    // 09:00 <= 時間 < 17:00
+    // =========================================================
+
+    function isTradingTime() {
+
+      const {
+        weekday,
+        hour,
+        minute
+      } =
+        getTaiwanDateParts();
+
+
+      if (
+        !isWeekday(
+          weekday
+        )
       ) {
-        return (
-          weekday === "Mon" ||
-          weekday === "Tue" ||
-          weekday === "Wed" ||
-          weekday === "Thu" ||
-          weekday === "Fri"
-        );
+
+        return false;
+
       }
-      // =========================================================
-      // 判斷是否為自動更新時段
-      //
-      // 星期一～星期五
-      // 09:00 <= 時間 < 17:00
-      // =========================================================
-      function isTradingTime() {
-        const {
-          weekday,
-          hour,
-          minute
-        } =
-        getTaiwanDateParts();
-        if (
-          !isWeekday(
-            weekday
-          )
-        ) {
-          return false;
-        }
-        const totalMinutes =
-          hour * 60 +
-          minute;
-        return (
-          totalMinutes >=
-          CONFIG.UPDATE_START &&
-          totalMinutes <
+
+
+      const totalMinutes =
+        hour * 60 +
+        minute;
+
+
+      return (
+
+        totalMinutes >=
+          CONFIG.UPDATE_START
+
+        &&
+
+        totalMinutes <
           CONFIG.UPDATE_END
-        );
-      }
-      // =========================================================
-      // 排程文字
-      // =========================================================
-      function getScheduleText() {
-        const {
-          weekday,
-          hour,
-          minute
-        } =
+
+      );
+
+    }
+
+
+    // =========================================================
+    // 排程文字
+    // =========================================================
+
+    function getScheduleText() {
+
+      const {
+        weekday,
+        hour,
+        minute
+      } =
         getTaiwanDateParts();
-        const totalMinutes =
-          hour * 60 +
-          minute;
-        if (
-          isWeekday(
-            weekday
-          ) &&
-          totalMinutes >=
-          CONFIG.UPDATE_START &&
-          totalMinutes <
+
+
+      const totalMinutes =
+        hour * 60 +
+        minute;
+
+
+      if (
+
+        isWeekday(
+          weekday
+        )
+
+        &&
+
+        totalMinutes >=
+          CONFIG.UPDATE_START
+
+        &&
+
+        totalMinutes <
           CONFIG.UPDATE_END
-        ) {
-          return (
-            "更新時段｜每 5 分鐘自動更新"
-          );
-        }
-        if (
-          isWeekday(
-            weekday
-          )
-        ) {
-          return (
-            "非更新時段｜重新整理網頁時更新一次"
-          );
-        }
+
+      ) {
+
         return (
-          "週末｜重新整理網頁時更新一次"
+          "更新時段｜每 5 分鐘自動更新"
         );
+
       }
-      // =========================================================
-      // localStorage：讀取歷史
-      // =========================================================
-      function loadHistory() {
-        try {
-          const saved =
-            localStorage.getItem(
-              CONFIG.STORAGE_KEY
-            );
-          if (
-            !saved
-          ) {
-            return [];
-          }
-          const history =
-            JSON.parse(
-              saved
-            );
-          if (
-            !Array.isArray(
-              history
-            )
-          ) {
-            return [];
-          }
-          return history
-            .slice(
-              0,
-              CONFIG.MAX_HISTORY
-            );
-        } catch (
-          error
-        ) {
-          console.warn(
-            "讀取歷史紀錄失敗：",
-            error
+
+
+      if (
+        isWeekday(
+          weekday
+        )
+      ) {
+
+        return (
+          "非更新時段｜重新整理網頁時更新一次"
+        );
+
+      }
+
+
+      return (
+        "週末｜重新整理網頁時更新一次"
+      );
+
+    }
+
+
+    // =========================================================
+    // 讀取歷史
+    // =========================================================
+
+    function loadHistory() {
+
+      try {
+
+        const saved =
+          localStorage.getItem(
+            CONFIG.STORAGE_KEY
           );
+
+
+        if (
+          !saved
+        ) {
+
           return [];
+
         }
-      }
-      // =========================================================
-      // localStorage：保存歷史
-      // =========================================================
-      function saveHistory(
-        history
-      ) {
-        try {
-          localStorage.setItem(
-            CONFIG.STORAGE_KEY,
-            JSON.stringify(
-              history.slice(
-                0,
-                CONFIG.MAX_HISTORY
-              )
-            )
-          );
-        } catch (
-          error
-        ) {
-          console.warn(
-            "保存歷史紀錄失敗：",
-            error
-          );
-        }
-      }
-      // =========================================================
-      // localStorage：讀取最後成功匯率
-      // =========================================================
-      function loadLastSuccessfulRate() {
-        try {
-          const value =
-            localStorage.getItem(
-              CONFIG.LAST_RATE_KEY
-            );
-          if (
-            value === null
-          ) {
-            return null;
-          }
-          const rate =
-            Number(
-              value
-            );
-          return Number.isFinite(
-              rate
-            ) ?
-            rate :
-            null;
-        } catch (
-          error
-        ) {
-          return null;
-        }
-      }
-      // =========================================================
-      // localStorage：保存最後成功匯率
-      // =========================================================
-      function saveLastSuccessfulRate(
-        rate
-      ) {
-        try {
-          localStorage.setItem(
-            CONFIG.LAST_RATE_KEY,
-            String(rate)
-          );
-        } catch (
-          error
-        ) {
-          console.warn(
-            "保存最後匯率失敗：",
-            error
-          );
-        }
-      }
-      // =========================================================
-      // 新增歷史紀錄
-      //
-      // 注意：
-      // 只有匯率真的變動才會呼叫這個函式
-      // =========================================================
-      function addHistoryRecord(
-        rate,
-        oldRate
-      ) {
+
+
         const history =
-          loadHistory();
-        const change =
-          rate - oldRate;
-        const record = {
-          time: getTaiwanDateTimeText(),
-          rate: Number(
-            rate.toFixed(3)
-          ),
-          change: Number(
-            change.toFixed(3)
+          JSON.parse(
+            saved
+          );
+
+
+        if (
+          !Array.isArray(
+            history
           )
-        };
-        history.unshift(
-          record
-        );
-        history.splice(
+        ) {
+
+          return [];
+
+        }
+
+
+        return history.slice(
+          0,
           CONFIG.MAX_HISTORY
         );
-        saveHistory(
-          history
+
+      } catch (
+        error
+      ) {
+
+        console.warn(
+          "讀取歷史紀錄失敗：",
+          error
         );
-        renderHistory(
-          history
-        );
+
+        return [];
+
       }
-      // =========================================================
-      // 渲染歷史
-      // =========================================================
-      function renderHistory(
+
+    }
+
+
+    // =========================================================
+    // 保存歷史
+    // =========================================================
+
+    function saveHistory(
+      history
+    ) {
+
+      try {
+
+        localStorage.setItem(
+          CONFIG.STORAGE_KEY,
+
+          JSON.stringify(
+            history.slice(
+              0,
+              CONFIG.MAX_HISTORY
+            )
+          )
+        );
+
+      } catch (
+        error
+      ) {
+
+        console.warn(
+          "保存歷史紀錄失敗：",
+          error
+        );
+
+      }
+
+    }
+
+
+    // =========================================================
+    // 讀取最後成功匯率
+    // =========================================================
+
+    function loadLastSuccessfulRate() {
+
+      try {
+
+        const value =
+          localStorage.getItem(
+            CONFIG.LAST_RATE_KEY
+          );
+
+
+        if (
+          value === null
+        ) {
+
+          return null;
+
+        }
+
+
+        const rate =
+          Number(
+            value
+          );
+
+
+        return Number.isFinite(
+          rate
+        )
+          ? rate
+          : null;
+
+      } catch (
+        error
+      ) {
+
+        return null;
+
+      }
+
+    }
+
+
+    // =========================================================
+    // 保存最後成功匯率
+    // =========================================================
+
+    function saveLastSuccessfulRate(
+      rate
+    ) {
+
+      try {
+
+        localStorage.setItem(
+          CONFIG.LAST_RATE_KEY,
+
+          String(
+            rate
+          )
+        );
+
+      } catch (
+        error
+      ) {
+
+        console.warn(
+          "保存最後匯率失敗：",
+          error
+        );
+
+      }
+
+    }
+
+
+    // =========================================================
+    // 新增歷史紀錄
+    // =========================================================
+
+    function addHistoryRecord(
+      rate,
+      oldRate
+    ) {
+
+      const history =
+        loadHistory();
+
+
+      const change =
+        rate - oldRate;
+
+
+      const record = {
+
+        time:
+          getTaiwanDateTimeText(),
+
+        rate:
+          Number(
+            rate.toFixed(3)
+          ),
+
+        change:
+          Number(
+            change.toFixed(3)
+          )
+
+      };
+
+
+      history.unshift(
+        record
+      );
+
+
+      history.splice(
+        CONFIG.MAX_HISTORY
+      );
+
+
+      saveHistory(
         history
+      );
+
+
+      renderHistory(
+        history
+      );
+
+    }
+
+
+    // =========================================================
+    // 渲染歷史
+    // =========================================================
+
+    function renderHistory(
+      history
+    ) {
+
+      historyBody.innerHTML =
+        "";
+
+
+      historyCount.textContent =
+        `${history.length} 筆`;
+
+
+      if (
+        history.length === 0
       ) {
-        historyBody.innerHTML =
-          "";
-        historyCount.textContent =
-          `${history.length} 筆`;
-        if (
-          history.length === 0
-        ) {
-          emptyHistory.style.display =
-            "block";
-          return;
-        }
+
         emptyHistory.style.display =
-          "none";
-        for (
-          const record of history
-        ) {
-          const row =
-            document.createElement(
-              "tr"
-            );
-          // -----------------------------------------------------
-          // 時間
-          // -----------------------------------------------------
-          const timeCell =
-            document.createElement(
-              "td"
-            );
-          timeCell.textContent =
-            record.time;
-          // -----------------------------------------------------
-          // 匯率
-          // -----------------------------------------------------
-          const rateCell =
-            document.createElement(
-              "td"
-            );
-          rateCell.textContent =
-            Number(
-              record.rate
-            ).toFixed(3);
-          // -----------------------------------------------------
-          // 變動
-          // -----------------------------------------------------
-          const changeCell =
-            document.createElement(
-              "td"
-            );
-          const change =
-            Number(
-              record.change
-            );
-          if (
-            change > 0
-          ) {
-            changeCell.textContent =
-              `▲ +${change.toFixed(3)}`;
-            changeCell.className =
-              "history-up";
-          } else {
-            changeCell.textContent =
-              `▼ ${change.toFixed(3)}`;
-            changeCell.className =
-              "history-down";
-          }
-          row.appendChild(
-            timeCell
-          );
-          row.appendChild(
-            rateCell
-          );
-          row.appendChild(
-            changeCell
-          );
-          historyBody.appendChild(
-            row
-          );
-        }
+          "block";
+
+        return;
+
       }
-      // =========================================================
-      // 顯示錯誤
-      // =========================================================
-      function showErrorPanel(
-        message,
-        details
+
+
+      emptyHistory.style.display =
+        "none";
+
+
+      for (
+        const record of history
       ) {
-        errorMessage.textContent =
-          message;
-        errorDetails.textContent =
-          details;
-        errorOverlay.classList.add(
-          "show"
-        );
-      }
-      // =========================================================
-      // 隱藏錯誤
-      // =========================================================
-      function hideErrorPanel() {
-        errorOverlay.classList.remove(
-          "show"
-        );
-      }
-      // =========================================================
-      // 解析 BOT HTML
-      // =========================================================
-      function parseUsdSellRate(
-        html
-      ) {
-        if (
-          !html ||
-          html.trim().length === 0
-        ) {
-          throw new Error(
-            "Proxy 回傳空白內容"
-          );
-        }
-        const parser =
-          new DOMParser();
-        const doc =
-          parser.parseFromString(
-            html,
-            "text/html"
-          );
-        const rows =
-          doc.querySelectorAll(
+
+        const row =
+          document.createElement(
             "tr"
           );
-        let usdRow =
-          null;
-        // -------------------------------------------------------
-        // 找美元 USD
-        // -------------------------------------------------------
-        for (
-          const row of rows
+
+
+        // 時間
+
+        const timeCell =
+          document.createElement(
+            "td"
+          );
+
+        timeCell.textContent =
+          record.time;
+
+
+        // 匯率
+
+        const rateCell =
+          document.createElement(
+            "td"
+          );
+
+        rateCell.textContent =
+          Number(
+            record.rate
+          ).toFixed(3);
+
+
+        // 變動
+
+        const changeCell =
+          document.createElement(
+            "td"
+          );
+
+
+        const change =
+          Number(
+            record.change
+          );
+
+
+        if (
+          change > 0
         ) {
-          const text =
-            row.textContent
+
+          changeCell.textContent =
+            `▲ +${change.toFixed(3)}`;
+
+          changeCell.className =
+            "history-up";
+
+        } else if (
+          change < 0
+        ) {
+
+          changeCell.textContent =
+            `▼ ${change.toFixed(3)}`;
+
+          changeCell.className =
+            "history-down";
+
+        } else {
+
+          changeCell.textContent =
+            "—";
+
+          changeCell.className =
+            "history-same";
+
+        }
+
+
+        row.appendChild(
+          timeCell
+        );
+
+        row.appendChild(
+          rateCell
+        );
+
+        row.appendChild(
+          changeCell
+        );
+
+
+        historyBody.appendChild(
+          row
+        );
+
+      }
+
+    }
+
+
+    // =========================================================
+    // 顯示錯誤
+    // =========================================================
+
+    function showErrorPanel(
+      message,
+      details
+    ) {
+
+      errorMessage.textContent =
+        message;
+
+      errorDetails.textContent =
+        details;
+
+      errorOverlay.classList.add(
+        "show"
+      );
+
+    }
+
+
+    // =========================================================
+    // 隱藏錯誤
+    // =========================================================
+
+    function hideErrorPanel() {
+
+      errorOverlay.classList.remove(
+        "show"
+      );
+
+    }
+
+
+    // =========================================================
+    // 解析臺灣銀行 HTML
+    //
+    // 找：
+    // 美金 (USD)
+    //
+    // 再找：
+    // 本行即期賣出
+    // =========================================================
+
+    function parseUsdSellRate(
+      html
+    ) {
+
+      if (
+        !html ||
+        html.trim().length === 0
+      ) {
+
+        throw new Error(
+          "Proxy 回傳空白內容"
+        );
+
+      }
+
+
+      const parser =
+        new DOMParser();
+
+
+      const doc =
+        parser.parseFromString(
+          html,
+          "text/html"
+        );
+
+
+      const rows =
+        doc.querySelectorAll(
+          "tr"
+        );
+
+
+      let usdRow =
+        null;
+
+
+      // -------------------------------------------------------
+      // 找美元 USD
+      // -------------------------------------------------------
+
+      for (
+        const row of rows
+      ) {
+
+        const text =
+          row.textContent
             .replace(
               /\s+/g,
               " "
             )
             .trim();
-          if (
-            text.includes(
-              "美金"
-            ) &&
-            text.includes(
-              "(USD)"
-            )
-          ) {
-            usdRow =
-              row;
-            break;
-          }
-        }
+
+
         if (
-          !usdRow
+
+          text.includes(
+            "美金"
+          )
+
+          &&
+
+          text.includes(
+            "(USD)"
+          )
+
         ) {
-          throw new Error(
-            "找不到美金 (USD) 資料"
-          );
+
+          usdRow =
+            row;
+
+          break;
+
         }
-        // -------------------------------------------------------
-        // 找本行即期賣出
-        // -------------------------------------------------------
-        const sellElement =
-          usdRow.querySelector(
-            'td[data-table="本行即期賣出"]'
-          );
-        if (
-          !sellElement
-        ) {
-          throw new Error(
-            "找不到「本行即期賣出」欄位"
-          );
-        }
-        const rateText =
-          sellElement.textContent
+
+      }
+
+
+      if (
+        !usdRow
+      ) {
+
+        throw new Error(
+          "找不到美金 (USD) 資料"
+        );
+
+      }
+
+
+      // -------------------------------------------------------
+      // 找本行即期賣出
+      // -------------------------------------------------------
+
+      const sellElement =
+        usdRow.querySelector(
+          'td[data-table="本行即期賣出"]'
+        );
+
+
+      if (
+        !sellElement
+      ) {
+
+        throw new Error(
+          "找不到「本行即期賣出」欄位"
+        );
+
+      }
+
+
+      const rateText =
+        sellElement.textContent
           .trim()
           .replace(
             /,/g,
             ""
           );
-        const rate =
-          Number(
-            rateText
-          );
-        if (
-          !Number.isFinite(
-            rate
-          )
-        ) {
-          throw new Error(
-            "取得的匯率不是有效數字：" +
-            rateText
-          );
-        }
-        return rate;
-      }
-      // =========================================================
-      // 更新畫面
-      //
-      // 重點：
-      // 第一次取得只顯示，不寫歷史。
-      // 之後只有真的變動才寫歷史。
-      // =========================================================
-      function updateRate(
-        rate
+
+
+      const rate =
+        Number(
+          rateText
+        );
+
+
+      if (
+        !Number.isFinite(
+          rate
+        )
       ) {
-        const oldRate =
-          previousRate;
-        const formattedRate =
-          rate.toFixed(3);
-        // -------------------------------------------------------
-        // 更新主要匯率
-        // -------------------------------------------------------
-        rateElement.textContent =
-          formattedRate;
-        // -------------------------------------------------------
-        // 已經有舊匯率，而且真的變動
-        // -------------------------------------------------------
+
+        throw new Error(
+          "取得的匯率不是有效數字：" +
+          rateText
+        );
+
+      }
+
+
+      return rate;
+
+    }
+
+
+    // =========================================================
+    // 更新畫面
+    //
+    // 第一次：
+    // 直接顯示匯率，不寫歷史。
+    //
+    // 之後：
+    // 只有真的變動才寫歷史。
+    // =========================================================
+
+    function updateRate(
+      rate
+    ) {
+
+      const oldRate =
+        previousRate;
+
+
+      // -------------------------------------------------------
+      // 直接顯示匯率
+      // -------------------------------------------------------
+
+      rateElement.textContent =
+        rate.toFixed(3);
+
+
+      // -------------------------------------------------------
+      // 有舊匯率，而且真的變動
+      // -------------------------------------------------------
+
+      if (
+
+        oldRate !== null
+
+        &&
+
+        Number(
+          rate.toFixed(3)
+        ) !==
+        Number(
+          oldRate.toFixed(3)
+        )
+
+      ) {
+
         if (
-          oldRate !== null &&
-          rate !== oldRate
+          rate > oldRate
         ) {
-          if (
-            rate > oldRate
-          ) {
-            rateElement.classList.add(
+
+          rateElement.classList.add(
+            "up"
+          );
+
+          rateElement.classList.remove(
+            "down"
+          );
+
+        } else {
+
+          rateElement.classList.add(
+            "down"
+          );
+
+          rateElement.classList.remove(
+            "up"
+          );
+
+        }
+
+
+        // -----------------------------------------------------
+        // 0.5 秒後恢復白色
+        // -----------------------------------------------------
+
+        setTimeout(
+          () => {
+
+            rateElement.classList.remove(
               "up"
             );
+
             rateElement.classList.remove(
               "down"
             );
-          } else {
-            rateElement.classList.add(
-              "down"
-            );
-            rateElement.classList.remove(
-              "up"
-            );
-          }
-          // ---------------------------------------------------
-          // 0.5 秒後恢復白色
-          // ---------------------------------------------------
+
+          },
+          500
+        );
+
+
+        // -----------------------------------------------------
+        // 只有變動才建立歷史
+        // -----------------------------------------------------
+
+        addHistoryRecord(
+          rate,
+          oldRate
+        );
+
+      }
+
+
+      // -------------------------------------------------------
+      // 記錄目前成功匯率
+      // -------------------------------------------------------
+
+      previousRate =
+        rate;
+
+
+      saveLastSuccessfulRate(
+        rate
+      );
+
+    }
+
+
+    // =========================================================
+    // 取得匯率
+    //
+    // 這裡直接：
+    //
+    // 瀏覽器
+    //   ↓
+    // corsproxy.io
+    //   ↓
+    // 臺灣銀行
+    //
+    // 不經過自己的 /api/usd
+    // =========================================================
+
+    async function fetchRate() {
+
+      if (
+        isFetching
+      ) {
+
+        return;
+
+      }
+
+
+      isFetching =
+        true;
+
+
+      let timeoutId =
+        null;
+
+
+      const controller =
+        new AbortController();
+
+
+      try {
+
+        statusElement.textContent =
+          "更新中...";
+
+
+        statusElement.classList.remove(
+          "error"
+        );
+
+
+        // -----------------------------------------------------
+        // 15 秒 timeout
+        // -----------------------------------------------------
+
+        timeoutId =
           setTimeout(
             () => {
-              rateElement.classList.remove(
-                "up"
-              );
-              rateElement.classList.remove(
-                "down"
-              );
+
+              controller.abort();
+
             },
-            500
+            CONFIG.FETCH_TIMEOUT
           );
-          // ---------------------------------------------------
-          // 只有變動才建立歷史
-          // ---------------------------------------------------
-          addHistoryRecord(
-            rate,
-            oldRate
+
+
+        // -----------------------------------------------------
+        // 直接呼叫原本 Proxy
+        // -----------------------------------------------------
+
+        const response =
+          await fetch(
+            getApiUrl(),
+            {
+              method:
+                "GET",
+
+              cache:
+                "no-store",
+
+              headers: {
+
+                "Accept":
+                  "text/html"
+
+              },
+
+              signal:
+                controller.signal
+            }
           );
+
+
+        if (
+          !response.ok
+        ) {
+
+          throw new Error(
+            `Proxy HTTP ${response.status}`
+          );
+
         }
-        // -------------------------------------------------------
-        // 記錄目前成功匯率
-        // -------------------------------------------------------
-        previousRate =
-          rate;
-        saveLastSuccessfulRate(
+
+
+        // -----------------------------------------------------
+        // 直接取得臺灣銀行 HTML
+        // -----------------------------------------------------
+
+        const html =
+          await response.text();
+
+
+        // -----------------------------------------------------
+        // 從 HTML 找 USD 即期賣出
+        // -----------------------------------------------------
+
+        const rate =
+          parseUsdSellRate(
+            html
+          );
+
+
+        // -----------------------------------------------------
+        // 成功
+        // -----------------------------------------------------
+
+        updateRate(
           rate
         );
-      }
-      // =========================================================
-      // 取得匯率
-      // =========================================================
-      async function fetchRate() {
-        // -------------------------------------------------------
-        // 避免同時重複請求
-        // -------------------------------------------------------
-        if (
-          isFetching
-        ) {
-          return;
-        }
-        isFetching =
-          true;
-        let timeoutId =
-          null;
-        const controller =
-          new AbortController();
-        try {
-          statusElement.textContent =
-            "更新中...";
-          statusElement.classList.remove(
-            "error"
-          );
-          // ---------------------------------------------------
-          // 15 秒 timeout
-          // ---------------------------------------------------
-          timeoutId =
-            setTimeout(
-              () => {
-                controller.abort();
-              },
-              CONFIG.FETCH_TIMEOUT
-            );
-          const response =
-            await fetch(
-              getApiUrl(), {
-                method: "GET",
-                cache: "no-store",
-                headers: {
-                  "Accept": "text/html"
-                },
-                signal: controller.signal
-              }
-            );
-          if (
-            !response.ok
-          ) {
-            throw new Error(
-              `Proxy HTTP ${response.status}`
-            );
-          }
-          const html =
-            await response.text();
-          const rate =
-            parseUsdSellRate(
-              html
-            );
-          // ---------------------------------------------------
-          // 成功
-          // ---------------------------------------------------
-          updateRate(
-            rate
-          );
-          statusElement.textContent =
-            "最後更新：" +
-            getTaiwanDateTimeText();
-          statusElement.classList.remove(
-            "error"
-          );
-          // ---------------------------------------------------
-          // 成功後關閉錯誤面板
-          // ---------------------------------------------------
-          hideErrorPanel();
-        } catch (
-          error
-        ) {
-          console.error(
-            "取得匯率失敗：",
-            error
-          );
-          const lastRate =
-            previousRate !== null ?
-            previousRate :
-            loadLastSuccessfulRate();
-          // ---------------------------------------------------
-          // 如果是 timeout
-          // ---------------------------------------------------
-          let errorText =
-            error.message;
-          if (
-            error.name ===
-            "AbortError"
-          ) {
-            errorText =
-              "連線逾時（超過 15 秒）";
-          }
-          // ---------------------------------------------------
-          // 保留最後成功匯率
-          // ---------------------------------------------------
-          if (
-            lastRate !== null
-          ) {
-            rateElement.textContent =
-              lastRate.toFixed(3);
-          }
-          statusElement.textContent =
-            "匯率服務暫時無法使用";
-          statusElement.classList.add(
-            "error"
-          );
-          // ---------------------------------------------------
-          // 顯示錯誤 UI
-          // ---------------------------------------------------
-          showErrorPanel(
-            "目前無法取得最新匯率。",
-            "錯誤：" +
-            errorText +
-            "\n\n" +
-            "最後成功匯率：" +
-            (
-              lastRate !== null ?
-              lastRate.toFixed(3) :
-              "--"
-            ) +
-            "\n" +
-            "錯誤時間：" +
-            getTaiwanDateTimeText()
-          );
-        } finally {
-          if (
-            timeoutId !== null
-          ) {
-            clearTimeout(
-              timeoutId
-            );
-          }
-          isFetching =
-            false;
-        }
-      }
-      // =========================================================
-      // 停止自動更新
-      // =========================================================
-      function stopAutoRefresh() {
-        if (
-          refreshTimer !== null
-        ) {
-          clearInterval(
-            refreshTimer
-          );
-          refreshTimer =
-            null;
-        }
-      }
-      // =========================================================
-      // 啟動自動更新
-      // =========================================================
-      function startAutoRefresh() {
-        if (
-          refreshTimer !== null
-        ) {
-          return;
-        }
-        refreshTimer =
-          setInterval(
-            () => {
-              if (
-                !isTradingTime()
-              ) {
-                stopAutoRefresh();
-                return;
-              }
-              fetchRate();
-            },
-            CONFIG.REFRESH_INTERVAL
-          );
-      }
-      // =========================================================
-      // 更新排程
-      // =========================================================
-      function updateSchedule() {
-        const trading =
-          isTradingTime();
-        refreshElement.textContent =
-          getScheduleText();
-        if (
-          trading
-        ) {
-          startAutoRefresh();
-        } else {
-          stopAutoRefresh();
-        }
-      }
-      // =========================================================
-      // 每 10 秒檢查更新時段
-      // =========================================================
-      function checkSchedule() {
-        const trading =
-          isTradingTime();
-        refreshElement.textContent =
-          getScheduleText();
-        // -------------------------------------------------------
-        // 第一次
-        // -------------------------------------------------------
-        if (
-          previousTradingState === null
-        ) {
-          previousTradingState =
-            trading;
-          return;
-        }
-        // -------------------------------------------------------
-        // 非更新時段 → 更新時段
-        //
-        // 例如：
-        // 08:59 → 09:00
-        // -------------------------------------------------------
-        if (
-          !previousTradingState &&
-          trading
-        ) {
-          fetchRate();
-          startAutoRefresh();
-        }
-        // -------------------------------------------------------
-        // 更新時段 → 非更新時段
-        //
-        // 例如：
-        // 16:59 → 17:00
-        // -------------------------------------------------------
-        if (
-          previousTradingState &&
-          !trading
-        ) {
-          stopAutoRefresh();
-        }
-        previousTradingState =
-          trading;
-      }
-      // =========================================================
-      // Retry
-      // =========================================================
-      retryButton.addEventListener(
-        "click",
-        () => {
-          fetchRate();
-        }
-      );
-      // =========================================================
-      // ESC
-      //
-      // 暫時關閉警示。
-      // 如果下一次抓取仍然失敗，會再次出現。
-      // =========================================================
-      document.addEventListener(
-        "keydown",
-        event => {
-          if (
-            event.key ===
-            "Escape"
-          ) {
-            hideErrorPanel();
-          }
-        }
-      );
-      // =========================================================
-      // 載入歷史
-      // =========================================================
-      renderHistory(
-        loadHistory()
-      );
-      // =========================================================
-      // 還原最後成功匯率
-      //
-      // 網頁剛開啟時如果 Proxy 暫時失敗，
-      // 可以先顯示上次成功的匯率。
-      // =========================================================
-      const savedRate =
-        loadLastSuccessfulRate();
-      if (
-        savedRate !== null
-      ) {
-        rateElement.textContent =
-          savedRate.toFixed(3);
-        previousRate =
-          savedRate;
-      }
-      // =========================================================
-      // 第一次開啟
-      //
-      // 不論是不是更新時段都立即抓一次。
-      // =========================================================
-      fetchRate();
-      // =========================================================
-      // 初始化更新狀態
-      // =========================================================
-      previousTradingState =
-        isTradingTime();
-      updateSchedule();
-      // =========================================================
-      // 每 10 秒檢查更新狀態
-      // =========================================================
-      scheduleTimer =
-        setInterval(
-          checkSchedule,
-          CONFIG.SCHEDULE_INTERVAL
-        );
-      // =========================================================
-      // 網頁從背景回到前景
-      //
-      // 手機瀏覽器可能暫停 timer。
-      // 回來後立即檢查一次。
-      // =========================================================
-      document.addEventListener(
-        "visibilitychange",
-        () => {
-          if (
-            document.visibilityState ===
-            "visible"
-          ) {
-            updateSchedule();
-            if (
-              isTradingTime()
-            ) {
-              fetchRate();
-            }
-          }
-        }
-      );
-    </script>
 
-  </body>
+
+        statusElement.textContent =
+          "最後更新：" +
+          getTaiwanDateTimeText();
+
+
+        statusElement.classList.remove(
+          "error"
+        );
+
+
+        // 成功後關閉錯誤面板
+
+        hideErrorPanel();
+
+      } catch (
+        error
+      ) {
+
+        console.error(
+          "取得匯率失敗：",
+          error
+        );
+
+
+        // -----------------------------------------------------
+        // 取得最後成功匯率
+        // -----------------------------------------------------
+
+        const lastRate =
+          previousRate !== null
+            ? previousRate
+            : loadLastSuccessfulRate();
+
+
+        // -----------------------------------------------------
+        // timeout
+        // -----------------------------------------------------
+
+        let errorText =
+          error.message;
+
+
+        if (
+          error.name ===
+          "AbortError"
+        ) {
+
+          errorText =
+            "連線逾時（超過 15 秒）";
+
+        }
+
+
+        // -----------------------------------------------------
+        // 保留最後成功匯率
+        // -----------------------------------------------------
+
+        if (
+          lastRate !== null
+        ) {
+
+          rateElement.textContent =
+            lastRate.toFixed(3);
+
+        }
+
+
+        statusElement.textContent =
+          "匯率服務暫時無法使用";
+
+
+        statusElement.classList.add(
+          "error"
+        );
+
+
+        // -----------------------------------------------------
+        // 顯示錯誤
+        // -----------------------------------------------------
+
+        showErrorPanel(
+
+          "目前無法取得最新匯率。",
+
+          "Proxy：corsproxy.io\n\n" +
+
+          "錯誤：" +
+          errorText +
+          "\n\n" +
+
+          "最後成功匯率：" +
+
+          (
+            lastRate !== null
+              ? lastRate.toFixed(3)
+              : "--"
+          ) +
+
+          "\n" +
+
+          "錯誤時間：" +
+          getTaiwanDateTimeText()
+
+        );
+
+      } finally {
+
+        if (
+          timeoutId !== null
+        ) {
+
+          clearTimeout(
+            timeoutId
+          );
+
+        }
+
+
+        isFetching =
+          false;
+
+      }
+
+    }
+
+
+    // =========================================================
+    // 停止自動更新
+    // =========================================================
+
+    function stopAutoRefresh() {
+
+      if (
+        refreshTimer !== null
+      ) {
+
+        clearInterval(
+          refreshTimer
+        );
+
+        refreshTimer =
+          null;
+
+      }
+
+    }
+
+
+    // =========================================================
+    // 啟動自動更新
+    // =========================================================
+
+    function startAutoRefresh() {
+
+      if (
+        refreshTimer !== null
+      ) {
+
+        return;
+
+      }
+
+
+      refreshTimer =
+        setInterval(
+          () => {
+
+            if (
+              !isTradingTime()
+            ) {
+
+              stopAutoRefresh();
+
+              return;
+
+            }
+
+
+            fetchRate();
+
+          },
+
+          CONFIG.REFRESH_INTERVAL
+        );
+
+    }
+
+
+    // =========================================================
+    // 更新排程
+    // =========================================================
+
+    function updateSchedule() {
+
+      const trading =
+        isTradingTime();
+
+
+      refreshElement.textContent =
+        getScheduleText();
+
+
+      if (
+        trading
+      ) {
+
+        startAutoRefresh();
+
+      } else {
+
+        stopAutoRefresh();
+
+      }
+
+    }
+
+
+    // =========================================================
+    // 每 10 秒檢查更新時段
+    // =========================================================
+
+    function checkSchedule() {
+
+      const trading =
+        isTradingTime();
+
+
+      refreshElement.textContent =
+        getScheduleText();
+
+
+      // -------------------------------------------------------
+      // 非更新時段 → 更新時段
+      //
+      // 例如 08:59 → 09:00
+      // -------------------------------------------------------
+
+      if (
+
+        previousTradingState === false
+
+        &&
+
+        trading
+
+      ) {
+
+        fetchRate();
+
+        startAutoRefresh();
+
+      }
+
+
+      // -------------------------------------------------------
+      // 更新時段 → 非更新時段
+      //
+      // 例如 16:59 → 17:00
+      // -------------------------------------------------------
+
+      if (
+
+        previousTradingState === true
+
+        &&
+
+        !trading
+
+      ) {
+
+        stopAutoRefresh();
+
+      }
+
+
+      previousTradingState =
+        trading;
+
+    }
+
+
+    // =========================================================
+    // Retry
+    // =========================================================
+
+    retryButton.addEventListener(
+      "click",
+      () => {
+
+        fetchRate();
+
+      }
+    );
+
+
+    // =========================================================
+    // ESC 關閉錯誤
+    // =========================================================
+
+    document.addEventListener(
+      "keydown",
+      event => {
+
+        if (
+          event.key === "Escape"
+        ) {
+
+          hideErrorPanel();
+
+        }
+
+      }
+    );
+
+
+    // =========================================================
+    // 載入歷史
+    // =========================================================
+
+    renderHistory(
+      loadHistory()
+    );
+
+
+    // =========================================================
+    // 還原最後成功匯率
+    //
+    // 如果 Proxy 暫時失敗，
+    // 先顯示上一次成功取得的匯率。
+    // =========================================================
+
+    const savedRate =
+      loadLastSuccessfulRate();
+
+
+    if (
+      savedRate !== null
+    ) {
+
+      rateElement.textContent =
+        savedRate.toFixed(3);
+
+      previousRate =
+        savedRate;
+
+    }
+
+
+    // =========================================================
+    // 初始化更新狀態
+    // =========================================================
+
+    previousTradingState =
+      isTradingTime();
+
+
+    updateSchedule();
+
+
+    // =========================================================
+    // 第一次立即取得匯率
+    //
+    // 不論是不是更新時段都抓一次
+    // =========================================================
+
+    fetchRate();
+
+
+    // =========================================================
+    // 每 10 秒檢查更新狀態
+    // =========================================================
+
+    scheduleTimer =
+      setInterval(
+        checkSchedule,
+        CONFIG.SCHEDULE_INTERVAL
+      );
+
+
+    // =========================================================
+    // 網頁從背景回到前景
+    //
+    // 手機瀏覽器可能暫停 timer，
+    // 回來後重新檢查並抓取。
+    // =========================================================
+
+    document.addEventListener(
+      "visibilitychange",
+      () => {
+
+        if (
+          document.visibilityState ===
+          "visible"
+        ) {
+
+          updateSchedule();
+
+
+          if (
+            isTradingTime()
+          ) {
+
+            fetchRate();
+
+          }
+
+        }
+
+      }
+    );
+
+  </script>
+
+</body>
 
 </html>
